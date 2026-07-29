@@ -2,7 +2,6 @@ package database
 
 import (
 	"context"
-	"encoding/json"
 	"slices"
 
 	"github.com/TopSisErp/epi-backend/internal/viaonda"
@@ -17,8 +16,6 @@ func UnknownTags(ctx context.Context, tags []viaonda.TagEntry) ([]viaonda.TagEnt
 
 	newTags := []viaonda.TagEntry{}
 	for _, tag := range tags {
-		str1, _ := json.Marshal(tag)
-		println(str1)
 		if _, ok := products[tag.Epc]; !ok {
 			newTags = append(newTags, tag)
 		}
