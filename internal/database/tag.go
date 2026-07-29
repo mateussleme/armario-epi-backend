@@ -46,7 +46,10 @@ func InventoryWithTags(ctx context.Context, tags []viaonda.TagEntry, product str
 
 	_, err = tx.ExecContext(ctx, `
 		insert into epitag (produto, tagEpc)
-		values ($1, $2)
+		select 
+			$1, 
+			t.tagEpc
+		from unnest($2::text[]) as t(tagEpc);
 	`, product, pq.Array(newTags))
 	if err != nil {
 		return err
