@@ -6,7 +6,7 @@ type TagEntry struct {
 }
 
 type GetEntriesResponse struct {
-	RecordCount int        `json:"record_count"`
+	RecordCount int        `json:"record count"`
 	Records     []TagEntry `json:"dados"`
 }
 
