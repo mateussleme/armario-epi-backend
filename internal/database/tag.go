@@ -3,6 +3,7 @@ package database
 import (
 	"context"
 	"encoding/json"
+	"slices"
 
 	"github.com/TopSisErp/epi-backend/internal/viaonda"
 	"github.com/lib/pq"
@@ -18,7 +19,7 @@ func UnknownTags(ctx context.Context, tags []viaonda.TagEntry) ([]viaonda.TagEnt
 	for _, tag := range tags {
 		str1, _ := json.Marshal(tag)
 		println(str1)
-		if _, ok := products[tag.Id]; !ok {
+		if _, ok := products[tag.Epc]; !ok {
 			newTags = append(newTags, tag)
 		}
 	}
@@ -29,7 +30,9 @@ func UnknownTags(ctx context.Context, tags []viaonda.TagEntry) ([]viaonda.TagEnt
 func InventoryWithTags(ctx context.Context, tags []viaonda.TagEntry, product string) error {
 	newTags := []string{}
 	for _, tag := range tags {
-		newTags = append(newTags, tag.Id)
+		if !slices.Contains(newTags, tag.Epc) {
+			newTags = append(newTags, tag.Epc)
+		}
 	}
 
 	conn, err := Connection(ctx)
@@ -45,7 +48,7 @@ func InventoryWithTags(ctx context.Context, tags []viaonda.TagEntry, product str
 	defer tx.Rollback()
 
 	_, err = tx.ExecContext(ctx, `
-		insert into epitag (produto, tagId)
+		insert into epitag (produto, tagEpc)
 		values ($1, $2)
 	`, product, pq.Array(newTags))
 	if err != nil {

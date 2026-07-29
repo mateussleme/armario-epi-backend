@@ -3,6 +3,7 @@ package session
 import (
 	"log/slog"
 	"net/http"
+	"slices"
 
 	"github.com/TopSisErp/epi-backend/internal/database"
 	"github.com/TopSisErp/epi-backend/internal/viaonda"
@@ -75,13 +76,15 @@ func Routes(group *gin.RouterGroup) {
 			return
 		}
 
-		idList := []string{}
+		epcList := []string{}
 		for _, tag := range newTags {
-			idList = append(idList, tag.Id)
+			if !slices.Contains(epcList, tag.Epc) {
+				epcList = append(epcList, tag.Epc)
+			}
 		}
 
 		c.JSON(http.StatusOK, gin.H{
-			"tags": idList,
+			"tags": epcList,
 		})
 	})
 

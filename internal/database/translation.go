@@ -2,6 +2,7 @@ package database
 
 import (
 	"context"
+	"slices"
 
 	"github.com/TopSisErp/epi-backend/internal/viaonda"
 	"github.com/lib/pq"
@@ -14,19 +15,21 @@ func TagsToProducts(ctx context.Context, tags []viaonda.TagEntry) (map[string]st
 	}
 	defer conn.Close()
 
-	tagIds := []string{}
+	tagEpcs := []string{}
 	for _, tag := range tags {
-		tagIds = append(tagIds, tag.Id)
+		if !slices.Contains(tagEpcs, tag.Epc) {
+			tagEpcs = append(tagEpcs, tag.Epc)
+		}
 	}
 
 	rows, err := conn.QueryContext(ctx, `
 		select
-			tagId,
+			tagEpc,
 			produto
 		from epitag
 		where
-			epitag.tagId = ANY($1)
-	`, pq.Array(tagIds))
+			epitag.tagEpc = ANY($1)
+	`, pq.Array(tagEpcs))
 	if err != nil {
 		return nil, err
 	}
@@ -34,15 +37,15 @@ func TagsToProducts(ctx context.Context, tags []viaonda.TagEntry) (map[string]st
 
 	products := map[string]string{}
 	for rows.Next() {
-		tagId := ""
+		tagEpc := ""
 		product := ""
 
-		err := rows.Scan(&tagId, &product)
+		err := rows.Scan(&tagEpc, &product)
 		if err != nil {
 			return nil, err
 		}
 
-		products[tagId] = product
+		products[tagEpc] = product
 	}
 
 	return products, nil

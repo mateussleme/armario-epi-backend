@@ -2,6 +2,7 @@ package database
 
 import (
 	"context"
+	"slices"
 
 	"github.com/TopSisErp/epi-backend/internal/viaonda"
 	"github.com/lib/pq"
@@ -27,7 +28,9 @@ func UpdateWithTags(ctx context.Context, tags []viaonda.TagEntry) error {
 
 	tagList := []string{}
 	for _, tag := range tags {
-		tagList = append(tagList, tag.Id)
+		if !slices.Contains(tagList, tag.Epc) {
+			tagList = append(tagList, tag.Epc)
+		}
 	}
 
 	conn, err := Connection(ctx)
@@ -58,7 +61,7 @@ func UpdateWithTags(ctx context.Context, tags []viaonda.TagEntry) error {
 			delete from epitag
 			where
 				epitag.produto = $1
-				and epitag.tagId != ANY($2)
+				and epitag.tagEpc != ANY($2)
 		`, product, pq.Array(tagList))
 		if err != nil {
 			return err
