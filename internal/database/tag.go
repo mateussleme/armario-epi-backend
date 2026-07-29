@@ -1,0 +1,67 @@
+package database
+
+import (
+	"context"
+	"encoding/json"
+
+	"github.com/TopSisErp/epi-backend/internal/viaonda"
+	"github.com/lib/pq"
+)
+
+func UnknownTags(ctx context.Context, tags []viaonda.TagEntry) ([]viaonda.TagEntry, error) {
+	products, err := TagsToProducts(ctx, tags)
+	if err != nil {
+		return nil, err
+	}
+
+	newTags := []viaonda.TagEntry{}
+	for _, tag := range tags {
+		str1, _ := json.Marshal(tag)
+		println(str1)
+		if _, ok := products[tag.Id]; !ok {
+			newTags = append(newTags, tag)
+		}
+	}
+
+	return newTags, nil
+}
+
+func InventoryWithTags(ctx context.Context, tags []viaonda.TagEntry, product string) error {
+	newTags := []string{}
+	for _, tag := range tags {
+		newTags = append(newTags, tag.Id)
+	}
+
+	conn, err := Connection(ctx)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	tx, err := conn.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	_, err = tx.ExecContext(ctx, `
+		insert into epitag (produto, tagId)
+		values ($1, $2)
+	`, product, pq.Array(newTags))
+	if err != nil {
+		return err
+	}
+
+	_, err = tx.ExecContext(ctx, `
+		update epiproduto
+		set
+			quantidade = epiproduto.quantidade + $1
+		where
+			epiproduto.id = $2
+	`, len(newTags), product)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
