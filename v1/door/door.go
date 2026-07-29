@@ -31,7 +31,7 @@ func Routes(group *gin.RouterGroup) {
 		}
 
 		for index, port := range ports {
-			err := viaonda.SetGpio(c, port, portStates[index] == "1")
+			err := viaonda.SetGpio(c, port, portStates[index] != "1")
 			if err != nil {
 				c.AbortWithStatus(http.StatusInternalServerError)
 				slog.Error("error opening door", "err", err.Error())
@@ -59,7 +59,7 @@ func Routes(group *gin.RouterGroup) {
 		}
 
 		for index, port := range ports {
-			err := viaonda.SetGpio(c, port, portStates[index] != "1")
+			err := viaonda.SetGpio(c, port, portStates[index] == "1")
 			if err != nil {
 				c.AbortWithStatus(http.StatusInternalServerError)
 				slog.Error("error closing door", "err", err.Error())
