@@ -23,7 +23,7 @@ func Routes(group *gin.RouterGroup) {
 			port, err := strconv.Atoi(portStr)
 			if err != nil {
 				c.AbortWithStatus(http.StatusInternalServerError)
-				slog.Error("error converting port", "err", err.Error())
+				slog.Error("error converting relay port", "err", err.Error(), "port", portStr, "index", i)
 				return
 			}
 
@@ -51,7 +51,7 @@ func Routes(group *gin.RouterGroup) {
 			port, err := strconv.Atoi(portStr)
 			if err != nil {
 				c.AbortWithStatus(http.StatusInternalServerError)
-				slog.Error("error converting port", "err", err.Error())
+				slog.Error("error converting relay port", "err", err.Error(), "port", portStr, "index", i)
 				return
 			}
 
@@ -79,7 +79,7 @@ func Routes(group *gin.RouterGroup) {
 			port, err := strconv.Atoi(portStr)
 			if err != nil {
 				c.AbortWithStatus(http.StatusInternalServerError)
-				slog.Error("error converting port", "err", err.Error())
+				slog.Error("error converting sensor port", "err", err.Error(), "port", portStr, "index", i)
 				return
 			}
 
