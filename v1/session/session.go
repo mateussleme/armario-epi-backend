@@ -38,8 +38,10 @@ func Routes(group *gin.RouterGroup) {
 			return
 		}
 
+		count := database.ProductsToCount(products)
+
 		c.JSON(http.StatusOK, gin.H{
-			"products": products,
+			"products": count,
 		})
 	})
 
