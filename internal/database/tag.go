@@ -5,7 +5,6 @@ import (
 	"slices"
 
 	"github.com/TopSisErp/epi-backend/internal/viaonda"
-	"github.com/lib/pq"
 )
 
 func UnknownTags(ctx context.Context, tags []viaonda.TagEntry) ([]viaonda.TagEntry, error) {
@@ -44,15 +43,15 @@ func InventoryWithTags(ctx context.Context, tags []viaonda.TagEntry, product str
 	}
 	defer tx.Rollback()
 
-	_, err = tx.ExecContext(ctx, `
-		insert into epitag (produto, tagEpc)
-		select 
-			$1, 
-			t.tagEpc
-		from unnest($2::text[]) as t(tagEpc);
-	`, product, pq.Array(newTags))
-	if err != nil {
-		return err
+	for _, tag := range newTags {
+		_, err = tx.ExecContext(ctx, `
+			insert into epitag (produto, tagEpc)
+			values ($1, $2)
+		`, product, tag)
+
+		if err != nil {
+			return err
+		}
 	}
 
 	_, err = tx.ExecContext(ctx, `

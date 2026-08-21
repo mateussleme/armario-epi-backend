@@ -61,7 +61,7 @@ func UpdateWithTags(ctx context.Context, tags []viaonda.TagEntry) error {
 			delete from epitag
 			where
 				epitag.produto = $1
-				and epitag.tagEpc != ANY($2)
+				and not (epitag.tagEpc = ANY($2))
 		`, product, pq.Array(tagList))
 		if err != nil {
 			return err
