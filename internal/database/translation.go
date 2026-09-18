@@ -47,6 +47,9 @@ func TagsToProducts(ctx context.Context, tags []viaonda.TagEntry) (map[string]st
 
 		products[tagEpc] = product
 	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 
 	return products, nil
 }

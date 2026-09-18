@@ -7,16 +7,22 @@ import (
 	"log/slog"
 	"mime/multipart"
 	"net/http"
+	"strconv"
 
 	"github.com/TopSisErp/epi-backend/internal/database"
 	"github.com/gin-gonic/gin"
 )
 
 type CreateForm struct {
-	Name        string                `form:"name"`
-	Description string                `form:"description"`
-	Image       *multipart.FileHeader `form:"image"`
-	VideoUri    string                `form:"videoUri"`
+	Name         string                `form:"name"`
+	Description  string                `form:"description"`
+	Image        *multipart.FileHeader `form:"image"`
+	VideoUri     string                `form:"videoUri"`
+	Ca           string                `form:"ca"`
+	CaVencimento string                `form:"caVencimento"`
+	Endereco     string                `form:"endereco"`
+	Porta        string                `form:"porta"`
+	Local        string                `form:"local"`
 }
 
 func Routes(group *gin.RouterGroup) {
@@ -82,7 +88,11 @@ func Routes(group *gin.RouterGroup) {
 			}
 		}
 
-		err := database.UpdateItem(c, id, newItem.Name, newItem.Description, imageBytes, newItem.VideoUri)
+		// A porta chega como texto do formulario; vazio vira 0 e o banco grava
+		// nulo.
+		porta, _ := strconv.Atoi(newItem.Porta)
+
+		err := database.UpdateItem(c, id, newItem.Name, newItem.Description, imageBytes, newItem.VideoUri, newItem.Ca, newItem.CaVencimento, newItem.Endereco, porta, newItem.Local)
 		if err != nil {
 			slog.Error("error updating item", "err", err.Error())
 			c.AbortWithStatus(http.StatusInternalServerError)

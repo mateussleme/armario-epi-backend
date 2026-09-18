@@ -3,6 +3,7 @@ package groups
 import (
 	"log/slog"
 	"net/http"
+	"strconv"
 
 	"github.com/TopSisErp/epi-backend/internal/database"
 	"github.com/gin-gonic/gin"
@@ -10,6 +11,15 @@ import (
 
 type CreateForm struct {
 	Name string `form:"name"`
+}
+
+// Regra do item dentro do grupo. Vem como texto porque o front manda multipart,
+// igual ao resto das telas de cadastro.
+//
+// DiasValidade vazio significa "nao vence", que e diferente de zero.
+type ItemForm struct {
+	Obrigatorio  string `form:"obrigatorio"`
+	DiasValidade string `form:"diasValidade"`
 }
 
 func Routes(group *gin.RouterGroup) {
@@ -40,6 +50,22 @@ func Routes(group *gin.RouterGroup) {
 
 		c.JSON(http.StatusOK, gin.H{
 			"groups": data,
+		})
+	})
+
+	// Os produtos do grupo com a regra de cada um (obrigatorio, prazo de troca).
+	groups.GET("/:id/products", func(c *gin.Context) {
+		id := c.Param("id")
+
+		products, err := database.GroupProducts(c, id)
+		if err != nil {
+			slog.Error("error getting group products", "err", err.Error())
+			c.AbortWithStatus(http.StatusInternalServerError)
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"products": products,
 		})
 	})
 
@@ -76,11 +102,33 @@ func Routes(group *gin.RouterGroup) {
 		c.JSON(http.StatusOK, gin.H{})
 	})
 
+	// Adiciona o item ao grupo e grava a regra. Serve tambem para so editar a
+	// regra de um item que ja esta la: o banco faz INSERT ... ON CONFLICT UPDATE.
 	groups.PUT("/:id/item/:product", func(c *gin.Context) {
 		id := c.Param("id")
 		product := c.Param("product")
 
-		err := database.GroupAddProduct(c, id, product)
+		var form ItemForm
+		// Bind sem erro fatal: quem so quer vincular o item, sem regra, manda a
+		// requisicao vazia e cai nos defaults.
+		_ = c.ShouldBind(&form)
+
+		obrigatorio := form.Obrigatorio == "1" || form.Obrigatorio == "true"
+
+		var dias *int
+		if form.DiasValidade != "" {
+			value, err := strconv.Atoi(form.DiasValidade)
+			if err != nil {
+				slog.Error("error parsing diasValidade", "err", err.Error())
+				c.AbortWithStatus(http.StatusBadRequest)
+				return
+			}
+			if value > 0 {
+				dias = &value
+			}
+		}
+
+		err := database.GroupSetProduct(c, id, product, obrigatorio, dias)
 		if err != nil {
 			slog.Error("error adding to group", "err", err.Error())
 			c.AbortWithStatus(http.StatusInternalServerError)

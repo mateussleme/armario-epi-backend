@@ -70,6 +70,9 @@ func AllUsers(ctx context.Context) ([]User, error) {
 
 		list = append(list, User{Id: id, Name: name})
 	}
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
 
 	return list, nil
 }
@@ -166,6 +169,9 @@ func UserProducts(ctx context.Context, id string) ([]string, error) {
 		}
 
 		products = append(products, id)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, err
 	}
 
 	return products, nil

@@ -33,6 +33,9 @@ func GetStock(ctx context.Context) (map[string]int, error) {
 
 		productCount[id] = quantity
 	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 
 	return productCount, nil
 }
