@@ -4,11 +4,26 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
+	"os"
+	"strconv"
 	"time"
 )
 
 // Cancelamento recusado: ou o pedido nao e da pessoa, ou a separacao ja comecou.
 var ErrCancelamentoNaoPermitido = errors.New("cancelamento nao permitido")
+
+// Minutos para separar uma requisicao, contados da criacao. O almoxarifado da
+// fabrica trabalha com quinze; aqui fica em variavel de ambiente porque o numero
+// depende do tamanho do deposito e de quanta gente separa, e trocar isso nao
+// pode exigir recompilar.
+func prazoSeparacao() time.Duration {
+	minutos, err := strconv.Atoi(os.Getenv("PRAZO_SEPARACAO_MINUTOS"))
+	if err != nil || minutos <= 0 {
+		minutos = 15
+	}
+	return time.Duration(minutos) * time.Minute
+}
 
 // Item como ele chega da tela na hora de criar o pedido.
 type NovaSolicitacaoItem struct {
@@ -34,11 +49,14 @@ func CreateSolicitacao(ctx context.Context, pessoa string, itens []NovaSolicitac
 	defer tx.Rollback()
 
 	id := int64(0)
+	// O prazo e resolvido aqui e gravado junto: assim a requisicao carrega o
+	// prazo que valia quando ela nasceu, e mudar o parametro depois nao muda o
+	// passado.
 	err = tx.QueryRowContext(ctx, `
-		INSERT INTO solicitacao (pessoa, status)
-		VALUES ($1, $2)
+		INSERT INTO solicitacao (pessoa, status, separar_ate)
+		VALUES ($1, $2, now() + $3::interval)
 		RETURNING id
-	`, pessoa, StatusAberta).Scan(&id)
+	`, pessoa, StatusAberta, fmt.Sprintf("%d minutes", int(prazoSeparacao().Minutes()))).Scan(&id)
 	if err != nil {
 		return 0, err
 	}
@@ -79,6 +97,7 @@ func AllSolicitacoes(ctx context.Context, status string) ([]Solicitacao, error) 
 			s.pessoa,
 			coalesce(p.nome, s.pessoa) as pessoa_nome,
 			s.data,
+			s.separar_ate,
 			s.status,
 			coalesce(s.separador, ''),
 			s.data_separacao,
@@ -88,11 +107,13 @@ func AllSolicitacoes(ctx context.Context, status string) ([]Solicitacao, error) 
 		left join pessoa p on p.id = s.pessoa
 		left join solicitacao_item i on i.solicitacao = s.id
 		where
-			($1 = '' and s.status <> $2)
+			-- Sem filtro, a lista de separacao traz so o que ainda da trabalho.
+			-- Cancelada e entregue ja sairam do fluxo.
+			($1 = '' and s.status <> $2 and s.status <> $3)
 			or s.status = $1
-		group by s.id, s.pessoa, p.nome, s.data, s.status, s.separador, s.data_separacao
-		order by s.data desc
-	`, status, StatusCancelada)
+		group by s.id, s.pessoa, p.nome, s.data, s.separar_ate, s.status, s.separador, s.data_separacao
+		order by s.separar_ate
+	`, status, StatusCancelada, StatusEntregue)
 	if err != nil {
 		return nil, err
 	}
@@ -102,10 +123,11 @@ func AllSolicitacoes(ctx context.Context, status string) ([]Solicitacao, error) 
 	for rows.Next() {
 		item := Solicitacao{}
 		data := time.Time{}
+		separarAte := sql.NullTime{}
 		dataSeparacao := sql.NullTime{}
 
 		err := rows.Scan(
-			&item.Id, &item.Pessoa, &item.PessoaNome, &data, &item.Status,
+			&item.Id, &item.Pessoa, &item.PessoaNome, &data, &separarAte, &item.Status,
 			&item.Separador, &dataSeparacao, &item.TotalItens, &item.ItensSeparados,
 		)
 		if err != nil {
@@ -113,6 +135,9 @@ func AllSolicitacoes(ctx context.Context, status string) ([]Solicitacao, error) 
 		}
 
 		item.Data = data.Format(time.RFC3339)
+		if separarAte.Valid {
+			item.SepararAte = separarAte.Time.Format(time.RFC3339)
+		}
 		if dataSeparacao.Valid {
 			item.DataSeparacao = dataSeparacao.Time.Format(time.RFC3339)
 		}
@@ -136,6 +161,7 @@ func SolicitacaoData(ctx context.Context, id int64) (*Solicitacao, error) {
 
 	item := Solicitacao{}
 	data := time.Time{}
+	separarAte := sql.NullTime{}
 	dataSeparacao := sql.NullTime{}
 
 	err = conn.QueryRowContext(ctx, `
@@ -144,6 +170,7 @@ func SolicitacaoData(ctx context.Context, id int64) (*Solicitacao, error) {
 			s.pessoa,
 			coalesce(p.nome, s.pessoa) as pessoa_nome,
 			s.data,
+			s.separar_ate,
 			s.status,
 			coalesce(s.separador, ''),
 			s.data_separacao,
@@ -153,9 +180,9 @@ func SolicitacaoData(ctx context.Context, id int64) (*Solicitacao, error) {
 		left join pessoa p on p.id = s.pessoa
 		left join solicitacao_item i on i.solicitacao = s.id
 		where s.id = $1
-		group by s.id, s.pessoa, p.nome, s.data, s.status, s.separador, s.data_separacao
+		group by s.id, s.pessoa, p.nome, s.data, s.separar_ate, s.status, s.separador, s.data_separacao
 	`, id).Scan(
-		&item.Id, &item.Pessoa, &item.PessoaNome, &data, &item.Status,
+		&item.Id, &item.Pessoa, &item.PessoaNome, &data, &separarAte, &item.Status,
 		&item.Separador, &dataSeparacao, &item.TotalItens, &item.ItensSeparados,
 	)
 	if err != nil {
@@ -163,6 +190,9 @@ func SolicitacaoData(ctx context.Context, id int64) (*Solicitacao, error) {
 	}
 
 	item.Data = data.Format(time.RFC3339)
+	if separarAte.Valid {
+		item.SepararAte = separarAte.Time.Format(time.RFC3339)
+	}
 	if dataSeparacao.Valid {
 		item.DataSeparacao = dataSeparacao.Time.Format(time.RFC3339)
 	}
@@ -382,6 +412,80 @@ func SetSolicitacaoStatus(ctx context.Context, id int64, status string) error {
 		set status = $2
 		where solicitacao.id = $1
 	`, id, status)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
+// Entrega recusada: ou a requisicao nao esta pronta, ou quem confirmou nao e o
+// requisitante.
+var ErrEntregaNaoPermitida = errors.New("entrega nao permitida")
+
+// Efetiva a entrega da requisicao.
+//
+// Quem confirma e o proprio requisitante, olhando os itens na tela e se
+// identificando pelo reconhecimento facial. Por isso a funcao recebe quem foi
+// reconhecido e compara com quem pediu: a conferencia de identidade acontece
+// aqui, nao so na tela.
+//
+// E aqui que o prazo de troca do EPI zera. Ate agora a retirada nao era
+// registrada em lugar nenhum do fluxo de almoxarifado, e o item so parava de ser
+// cobrado por existir requisicao em aberto. Com a entrega, o que foi recebido
+// entra no historico e a contagem recomeca do zero.
+func EntregarSolicitacao(ctx context.Context, id int64, pessoaConfirmada string) error {
+	conn, err := Connection(ctx)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	tx, err := conn.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	// Trava a linha: duas confirmacoes ao mesmo tempo entregariam duas vezes e
+	// gravariam a retirada em dobro.
+	pessoa := ""
+	status := ""
+	err = tx.QueryRowContext(ctx, `
+		select pessoa, status
+		from solicitacao
+		where id = $1
+		for update
+	`, id).Scan(&pessoa, &status)
+	if err != nil {
+		return err
+	}
+
+	if status != StatusAguardandoRetirada || pessoa != pessoaConfirmada {
+		return ErrEntregaNaoPermitida
+	}
+
+	// Uma retirada por item separado, com a quantidade que saiu de fato. Item
+	// que o almoxarifado nao conseguiu separar nao entra: nao foi entregue,
+	// entao nao zera prazo nenhum.
+	_, err = tx.ExecContext(ctx, `
+		INSERT INTO retirada (pessoa, produto, origem)
+		SELECT $2, produto, 'almoxarifado'
+		FROM solicitacao_item
+		WHERE
+			solicitacao = $1
+			and separado
+			and coalesce(quantidade_separada, 0) > 0
+	`, id, pessoa)
+	if err != nil {
+		return err
+	}
+
+	_, err = tx.ExecContext(ctx, `
+		update solicitacao
+		set status = $2
+		where id = $1
+	`, id, StatusEntregue)
 	if err != nil {
 		return err
 	}

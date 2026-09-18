@@ -143,6 +143,38 @@ func Routes(group *gin.RouterGroup) {
 		c.Status(http.StatusOK)
 	})
 
+	// Entrega, confirmada pelo proprio requisitante.
+	//
+	// A pessoa vem na query porque e o resultado do reconhecimento facial feito
+	// na tela: o backend confere se quem foi reconhecido e mesmo quem pediu, em
+	// vez de aceitar a palavra da interface.
+	solicitacoes.POST("/:id/entregar", func(c *gin.Context) {
+		id, ok := parseId(c)
+		if !ok {
+			return
+		}
+
+		pessoa := c.Query("pessoa")
+		if pessoa == "" {
+			c.AbortWithStatus(http.StatusBadRequest)
+			return
+		}
+
+		err := database.EntregarSolicitacao(c, id, pessoa)
+		if errors.Is(err, database.ErrEntregaNaoPermitida) {
+			// A regra recusou: ou nao esta pronta, ou nao e a pessoa certa.
+			c.AbortWithStatus(http.StatusConflict)
+			return
+		}
+		if err != nil {
+			slog.Error("error delivering solicitacao", "err", err.Error())
+			c.AbortWithStatus(http.StatusInternalServerError)
+			return
+		}
+
+		c.Status(http.StatusOK)
+	})
+
 	// Cancelamento pelo solicitante. Pede a pessoa na query porque o cancelamento
 	// e dela: o backend confere que o pedido e mesmo daquele usuario e que a
 	// separacao ainda nao comecou, em vez de confiar na tela.

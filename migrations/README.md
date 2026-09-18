@@ -1,7 +1,7 @@
 # Migrations
 
 Os comandos de banco ficam aqui como parte dos fontes, em ordem numerica. Rodar
-na sequencia, uma vez cada, num banco que ja tenha o dump inicial restaurado.
+na sequencia, num banco que ja tenha o dump inicial restaurado.
 
 ```
 psql -U postgres -d epi -f migrations/001_ca_produto.sql
@@ -20,6 +20,7 @@ psql -U postgres -d epi -f migrations/002_endereco_produto.sql
 | 007_retirada_historico.sql | Solta as FKs do historico: o registro sobrevive a exclusao do cadastro |
 | 008_solicitacao.sql | Solicitacao de itens do almoxarifado e a separacao (picking) |
 | 009_quantidade_separada.sql | Quanto foi separado de fato, quando o local nao tem tudo |
+| 010_prazo_separacao.sql | Prazo para separar (Separar Ate), que pinta a linha na lista |
 
 Todas sao idempotentes (`if not exists`), entao rodar duas vezes nao quebra.
 

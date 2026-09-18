@@ -69,6 +69,8 @@ type Solicitacao struct {
 	Pessoa        string `json:"pessoa"`
 	PessoaNome    string `json:"pessoaNome"`
 	Data          string `json:"data"`
+	// Hora limite para separar. A tela pinta a linha a partir disto.
+	SepararAte    string `json:"separarAte"`
 	Status        string `json:"status"`
 	Separador     string `json:"separador"`
 	DataSeparacao string `json:"dataSeparacao"`
@@ -101,4 +103,5 @@ const (
 	StatusSeparando          = "separando"
 	StatusAguardandoRetirada = "aguardando_retirada"
 	StatusCancelada          = "cancelada"
+	StatusEntregue           = "entregue"
 )
