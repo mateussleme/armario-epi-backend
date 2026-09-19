@@ -84,7 +84,9 @@ func CreateSolicitacao(ctx context.Context, pessoa string, itens []NovaSolicitac
 // A Lista de Separacao. status vazio traz tudo que ainda esta em aberto, que e
 // como a tela abre; cancelada nunca entra no padrao, porque sair da lista e o
 // proposito dela.
-func AllSolicitacoes(ctx context.Context, status string) ([]Solicitacao, error) {
+// pessoa vazia traz de todo mundo (Lista de Separacao); preenchida traz so as
+// da pessoa, que e o que o requisitante ve na tela de Solicitacao.
+func AllSolicitacoes(ctx context.Context, status string, pessoa string) ([]Solicitacao, error) {
 	conn, err := Connection(ctx)
 	if err != nil {
 		return nil, err
@@ -109,11 +111,14 @@ func AllSolicitacoes(ctx context.Context, status string) ([]Solicitacao, error) 
 		where
 			-- Sem filtro, a lista de separacao traz so o que ainda da trabalho.
 			-- Cancelada e entregue ja sairam do fluxo.
-			($1 = '' and s.status <> $2 and s.status <> $3)
-			or s.status = $1
+			(
+				($1 = '' and s.status <> $2 and s.status <> $3)
+				or s.status = $1
+			)
+			and ($4 = '' or s.pessoa = $4)
 		group by s.id, s.pessoa, p.nome, s.data, s.separar_ate, s.status, s.separador, s.data_separacao
 		order by s.separar_ate
-	`, status, StatusCancelada, StatusEntregue)
+	`, status, StatusCancelada, StatusEntregue, pessoa)
 	if err != nil {
 		return nil, err
 	}
@@ -469,8 +474,8 @@ func EntregarSolicitacao(ctx context.Context, id int64, pessoaConfirmada string)
 	// que o almoxarifado nao conseguiu separar nao entra: nao foi entregue,
 	// entao nao zera prazo nenhum.
 	_, err = tx.ExecContext(ctx, `
-		INSERT INTO retirada (pessoa, produto, origem)
-		SELECT $2, produto, 'almoxarifado'
+		INSERT INTO retirada (pessoa, produto, origem, quantidade)
+		SELECT $2, produto, 'almoxarifado', quantidade_separada
 		FROM solicitacao_item
 		WHERE
 			solicitacao = $1

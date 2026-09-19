@@ -55,10 +55,14 @@ type RequiredProduct struct {
 }
 
 type Retirada struct {
-	Pessoa  string `json:"pessoa"`
-	Produto string `json:"produto"`
-	Data    string `json:"data"`
-	Origem  string `json:"origem"`
+	Pessoa      string `json:"pessoa"`
+	Produto     string `json:"produto"`
+	// Nome resolvido no momento da consulta. Vazio quando o produto ja foi
+	// excluido do cadastro: o historico continua valendo, so perde o nome.
+	ProdutoNome string `json:"produtoNome"`
+	Quantidade  int    `json:"quantidade"`
+	Data        string `json:"data"`
+	Origem      string `json:"origem"`
 }
 
 // Uma linha da Lista de Separacao. Ja traz o nome de quem pediu e a contagem de

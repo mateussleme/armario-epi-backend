@@ -21,6 +21,7 @@ psql -U postgres -d epi -f migrations/002_endereco_produto.sql
 | 008_solicitacao.sql | Solicitacao de itens do almoxarifado e a separacao (picking) |
 | 009_quantidade_separada.sql | Quanto foi separado de fato, quando o local nao tem tudo |
 | 010_prazo_separacao.sql | Prazo para separar (Separar Ate), que pinta a linha na lista |
+| 011_retirada_quantidade.sql | Quantidade em cada retirada, para a ficha de EPI |
 
 Todas sao idempotentes (`if not exists`), entao rodar duas vezes nao quebra.
 

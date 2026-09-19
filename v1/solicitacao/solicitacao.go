@@ -78,7 +78,7 @@ func Routes(group *gin.RouterGroup) {
 	// A Lista de Separacao. Sem status na query traz tudo que ainda esta em
 	// aberto, que e como a tela abre.
 	solicitacoes.GET("/all", func(c *gin.Context) {
-		list, err := database.AllSolicitacoes(c, c.Query("status"))
+		list, err := database.AllSolicitacoes(c, c.Query("status"), c.Query("pessoa"))
 		if err != nil {
 			slog.Error("error getting solicitacoes", "err", err.Error())
 			c.AbortWithStatus(http.StatusInternalServerError)

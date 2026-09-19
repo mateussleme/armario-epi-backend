@@ -154,13 +154,16 @@ func UserRetiradas(ctx context.Context, pessoa string, limit int) ([]Retirada, e
 
 	rows, err := conn.QueryContext(ctx, `
 		select
-			produto,
-			data,
-			origem
-		from retirada
+			r.produto,
+			coalesce(p.nome, ''),
+			r.quantidade,
+			r.data,
+			r.origem
+		from retirada r
+		left join epiproduto p on p.id = r.produto
 		where
-			retirada.pessoa = $1
-		order by data desc
+			r.pessoa = $1
+		order by r.data desc
 		limit $2
 	`, pessoa, limit)
 	if err != nil {
@@ -173,7 +176,7 @@ func UserRetiradas(ctx context.Context, pessoa string, limit int) ([]Retirada, e
 		item := Retirada{Pessoa: pessoa}
 		data := time.Time{}
 
-		err := rows.Scan(&item.Produto, &data, &item.Origem)
+		err := rows.Scan(&item.Produto, &item.ProdutoNome, &item.Quantidade, &data, &item.Origem)
 		if err != nil {
 			return nil, err
 		}
